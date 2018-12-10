@@ -93,7 +93,7 @@ export function preloadInterstitial(arg: InterstitialOptions): Promise<any> {
             if (error) {
               reject(error.localizedDescription);
             } else {
-              resolve();
+              arg.onAdLoaded && arg.onAdLoaded();               
             }
             CFRelease(delegate);
             delegate = undefined;
