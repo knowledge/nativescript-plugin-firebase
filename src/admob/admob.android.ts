@@ -100,7 +100,8 @@ export function preloadInterstitial(arg: InterstitialOptions): Promise<any> {
       // Interstitial ads must be loaded before they can be shown, so adding a listener
       const InterstitialAdListener = com.google.android.gms.ads.AdListener.extend({
         onAdLoaded: () => {
-          resolve();
+          //Sam changes for the fork
+          arg.onAdLoaded && arg.onAdLoaded(); 
         },
         onAdFailedToLoad: errorCode => {
           reject(errorCode);
