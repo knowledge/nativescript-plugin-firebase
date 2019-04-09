@@ -83,6 +83,11 @@ export interface InterstitialOptions {
    */
   testing?: boolean;
 
+  /** 
+   * callback to be exucted when add is loaded
+   */
+  onAdLoaded?: function;
+
   /**
    * Something like "ca-app-pub-AAAAAAAA/BBBBBBB".
    */
