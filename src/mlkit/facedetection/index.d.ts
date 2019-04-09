@@ -1,5 +1,15 @@
-import { MLKitOptions } from "../";
-import { MLKitCameraView, MLKitResult } from "../index";
+import { MLKitCameraView, MLKitVisionOptions, MLKitVisionResult } from "../";
+
+export interface MLKitDetectFacesResultBounds {
+  origin: {
+    x: number;
+    y: number;
+  },
+  size: {
+    width: number;
+    height: number;
+  }
+}
 
 export interface MLKitDetectFacesResultFace {
   smilingProbability?: number;
@@ -8,15 +18,18 @@ export interface MLKitDetectFacesResultFace {
   trackingId?: number;
   ios?: any;
   android?: any;
+  bounds?: MLKitDetectFacesResultBounds;
+  headEulerAngleZ?: number;
+  headEulerAngleY?: number;
 }
 
-export interface MLKitDetectFacesOnDeviceResult extends MLKitResult {
+export interface MLKitDetectFacesOnDeviceResult extends MLKitVisionResult {
   faces: Array<MLKitDetectFacesResultFace>;
 }
 
 export type MLKitFaceDetectionMode = "fast" | "accurate";
 
-export interface MLKitDetectFacesOnDeviceOptions extends MLKitOptions {
+export interface MLKitDetectFacesOnDeviceOptions extends MLKitVisionOptions {
   /**
    * Favor speed or accuracy when detecting faces.
    * Default "fast".
@@ -27,8 +40,8 @@ export interface MLKitDetectFacesOnDeviceOptions extends MLKitOptions {
    * Whether or not to attempt to identify facial "landmarks": eyes, ears, nose, cheeks, mouth.
    * Default "none".
    *
-  // detectLandmarks?: "none" | "all";
-  */
+   // detectLandmarks?: "none" | "all";
+   */
 
   /**
    * The minimum size, relative to the image, of faces to detect.
@@ -45,4 +58,5 @@ export interface MLKitDetectFacesOnDeviceOptions extends MLKitOptions {
 
 export declare function detectFacesOnDevice(options: MLKitDetectFacesOnDeviceOptions): Promise<MLKitDetectFacesOnDeviceResult>;
 
-export declare class MLKitFaceDetection extends MLKitCameraView {}
+export declare class MLKitFaceDetection extends MLKitCameraView {
+}

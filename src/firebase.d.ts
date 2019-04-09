@@ -39,6 +39,16 @@ export enum LoginType {
   EMAIL_LINK
 }
 
+export enum LogComplexEventTypeParameter {
+  STRING,
+  INT,
+  FLOAT,
+  DOUBLE,
+  LONG,
+  ARRAY,
+  BOOLEAN
+}
+
 /**
  * The allowed values for QueryOptions.orderBy.type.
  */
@@ -194,6 +204,15 @@ export interface GetAuthTokenOptions {
   forceRefresh?: boolean;
 }
 
+export interface IdTokenResult {
+  token: string;
+  claims: { [key: string]: any; };
+  signInProvider: string;
+  expirationTime: number;
+  issuedAtTime: number;
+  authTime: number;
+}
+
 export interface Provider {
   id: string;
 }
@@ -306,6 +325,20 @@ export interface ReauthenticateOptions {
   password?: string;
 }
 
+type ActionCodeSettings = {
+  url: string;
+  handleCodeInApp?: boolean;
+  android?: {
+    installApp?: boolean;
+    minimumVersion?: string;
+    packageName: string;
+  };
+  iOS?: {
+    bundleId: string;
+    dynamicLinkDomain?: string;
+  };
+};
+
 /**
  * The returned object from the login function.
  */
@@ -321,8 +354,15 @@ export interface User {
   profileImageURL?: string;
   metadata: UserMetadata;
   additionalUserInfo?: AdditionalUserInfo;
+
   /** iOS only */
   refreshToken?: string;
+
+  getIdToken(forceRefresh?: boolean): Promise<string>;
+
+  getIdTokenResult(forceRefresh?: boolean): Promise<IdTokenResult>;
+
+  sendEmailVerification(actionCodeSettings?: ActionCodeSettings): Promise<void>;
 }
 
 /**
@@ -375,13 +415,6 @@ export interface UpdateProfileOptions {
 }
 
 /**
- * The options object passed into the resetPassword function.
- */
-export interface ResetPasswordOptions {
-  email: string;
-}
-
-/**
  * The returned object in the callback handlers
  * of the addChildEventListener and addValueEventListener functions.
  */
@@ -391,13 +424,12 @@ export interface FBData {
   value: any;
 }
 
-/**
- * The options object passed into the changePassword function.
- */
-export interface ChangePasswordOptions {
-  email: string;
-  oldPassword: string;
-  newPassword: string;
+export interface FBDataSingleEvent extends FBData {
+  children?: Array<any>;
+}
+
+export interface FBErrorData {
+  error: string;
 }
 
 export interface AuthStateData {
@@ -508,6 +540,54 @@ export interface SendCrashLogOptions {
 export function init(options?: InitOptions): Promise<any>;
 
 // Database
+export interface OnDisconnect {
+  cancel(): Promise<any>;
+
+  remove(): Promise<any>;
+
+  set(value: any): Promise<any>;
+
+  setWithPriority(
+      value: any,
+      priority: number | string
+  ): Promise<any>;
+
+  update(values: Object): Promise<any>;
+}
+
+export interface DataSnapshot {
+  key: string;
+  ref: any; // TODO: Type it so that it returns a databaseReference.
+  child(path: string): DataSnapshot;
+
+  exists(): boolean;
+
+  forEach(action: (snapshot: DataSnapshot) => any): boolean;
+
+  getPriority(): string | number | null;
+
+  hasChild(path: string): boolean;
+
+  hasChildren(): boolean;
+
+  numChildren(): number;
+
+  toJSON(): Object;
+
+  val(): any;
+}
+
+export interface FirebaseQueryResult {
+  type: string;
+  key: string;
+  value: any;
+}
+
+export type Unsubscribe = () => void;
+
+export function transaction(path: string, transactionUpdate: (a: any) => any,
+                            onComplete?: (error: Error | null, committed: boolean, dataSnapshot: DataSnapshot) => any): Promise<any>;
+
 export function push(path: string, value: any): Promise<PushResult>;
 
 export function getValue(path: string): Promise<any>;
@@ -518,13 +598,17 @@ export function update(path: string, value: any): Promise<any>;
 
 export function remove(path: string): Promise<any>;
 
-export function query(onValueEvent: (data: FBData) => void, path: string, options: QueryOptions): Promise<any>;
+export function query(onValueEvent: (data: FBData | FBErrorData) => void, path: string, options: QueryOptions): Promise<any>;
 
 export function addChildEventListener(onChildEvent: (data: FBData) => void, path: string): Promise<AddEventListenerResult>;
 
 export function addValueEventListener(onValueEvent: (data: FBData) => void, path: string): Promise<AddEventListenerResult>;
 
 export function removeEventListeners(listeners: Array<any>, path: string): Promise<any>;
+
+export function onDisconnect(path: string): OnDisconnect;
+
+export function enableLogging(logger?: boolean | ((a: string) => any), persistent?: boolean);
 
 /**
  * Tells the client to keep its local cache in sync with the server automatically.
@@ -617,8 +701,77 @@ export namespace firestore {
 
   export function GeoPoint(latitude: number, longitude: number): GeoPoint;
 
+  export interface Settings {
+    /** The hostname to connect to. */
+    host?: string;
+    /** Whether to use SSL when connecting. */
+    ssl?: boolean;
+
+    /**
+     * Specifies whether to use `Timestamp` objects for timestamp fields in
+     * `DocumentSnapshot`s. This is enabled by default and should not be
+     * disabled.
+     *
+     * Previously, Firestore returned timestamp fields as `Date` but `Date`
+     * only supports millisecond precision, which leads to truncation and
+     * causes unexpected behavior when using a timestamp from a snapshot as a
+     * part of a subsequent query.
+     *
+     * So now Firestore returns `Timestamp` values instead of `Date`, avoiding
+     * this kind of problem.
+     *
+     * To opt into the old behavior of returning `Date` objects, you can
+     * temporarily set `timestampsInSnapshots` to false.
+     *
+     * @deprecated This setting will be removed in a future release. You should
+     * update your code to expect `Timestamp` objects and stop using the
+     * `timestampsInSnapshots` setting.
+     */
+    timestampsInSnapshots?: boolean;
+
+    /**
+     * An approximate cache size threshold for the on-disk data. If the cache grows beyond this
+     * size, Firestore will start removing data that hasn't been recently used. The size is not a
+     * guarantee that the cache will stay below that size, only that if the cache exceeds the given
+     * size, cleanup will be attempted.
+     *
+     * The default value is 40 MB. The threshold must be set to at least 1 MB, and can be set to
+     * CACHE_SIZE_UNLIMITED to disable garbage collection.
+     */
+    cacheSizeBytes?: number;
+  }
+
+  /**
+   * Specifies custom settings to be used to configure the `Firestore`
+   * instance. Must be set before invoking any other methods.
+   *
+   * @param settings The settings to use.
+   */
+  export function settings(settings: Settings): void;
+
   export interface SetOptions {
     merge?: boolean;
+  }
+
+  export interface SnapshotMetadata {
+    /**
+     * True if the snapshot contains the result of local writes (e.g. set() or
+     * update() calls) that have not yet been committed to the backend.
+     * If your listener has opted into metadata updates (via
+     * `DocumentListenOptions` or `QueryListenOptions`) you will receive another
+     * snapshot with `hasPendingWrites` equal to false once the writes have been
+     * committed to the backend.
+     */
+    readonly hasPendingWrites: boolean;
+
+    /**
+     * True if the snapshot was created from cached data rather than
+     * guaranteed up-to-date server data. If your listener has opted into
+     * metadata updates (via `DocumentListenOptions` or `QueryListenOptions`)
+     * you will receive another snapshot with `fromCache` equal to false once
+     * the client has received up-to-date data from the backend.
+     */
+    readonly fromCache: boolean;
   }
 
   export interface DocumentSnapshot {
@@ -630,22 +783,48 @@ export namespace firestore {
     exists: boolean;
     ref: DocumentReference;
 
+    /**
+     * Included when includeMetadataChanges is true.
+     */
+    readonly metadata?: SnapshotMetadata;
+
     data(): DocumentData;
   }
 
+  export interface SnapshotListenOptions {
+    /**
+     * Include a change even if only the metadata of the query or of a document changed.
+     * Default false.
+     */
+    readonly includeMetadataChanges?: boolean;
+  }
+
   export interface DocumentReference {
-    discriminator: "docRef";
-    id: string;
-    path: string;
+    readonly discriminator: "docRef";
+
+    readonly id: string;
+
+    /**
+     * A reference to the Collection to which this DocumentReference belongs.
+     */
+    readonly parent: CollectionReference;
+
+    readonly path: string;
+
     collection: (collectionPath: string) => CollectionReference;
+
     set: (document: any, options?: SetOptions) => Promise<void>;
+
     get: () => Promise<DocumentSnapshot>;
+
     update: (document: any) => Promise<void>;
+
     delete: () => Promise<void>;
 
-    onSnapshot(callback: (doc: DocumentSnapshot) => void): () => void;
+    onSnapshot(optionsOrCallback: SnapshotListenOptions | ((snapshot: DocumentSnapshot) => void), callbackOrOnError?: (snapshot: DocumentSnapshot | Error) => void, onError?: (error: Error) => void): () => void;
 
     android?: any;
+
     ios?: any;
   }
 
@@ -658,7 +837,7 @@ export namespace firestore {
 
     limit(limit: number): Query;
 
-    onSnapshot(callback: (snapshot: QuerySnapshot) => void): () => void;
+    onSnapshot(optionsOrCallback: SnapshotListenOptions | ((snapshot: QuerySnapshot) => void), callbackOrOnError?: (snapshotOrError: QuerySnapshot | Error) => void, onError?: (error: Error) => void): () => void;
 
     startAt(snapshot: DocumentSnapshot): Query;
 
@@ -670,7 +849,12 @@ export namespace firestore {
   }
 
   export interface CollectionReference extends Query {
-    id: string;
+    readonly id: string;
+
+    /**
+     * A reference to the containing Document if this is a subcollection, else null.
+     */
+    readonly parent: DocumentReference | null;
 
     doc(documentPath?: string): DocumentReference;
 
@@ -797,6 +981,11 @@ export namespace firestore {
     docSnapshots: firestore.DocumentSnapshot[];
     docs: firestore.QueryDocumentSnapshot[];
 
+    /**
+     * Included when includeMetadataChanges is true.
+     */
+    readonly metadata: SnapshotMetadata;
+
     docChanges(options?: SnapshotListenOptions): DocumentChange[];
 
     forEach(callback: (result: DocumentSnapshot) => void, thisArg?: any): void;
@@ -836,15 +1025,17 @@ export function reauthenticate(options: ReauthenticateOptions): Promise<any>;
 
 export function reloadUser(): Promise<void>;
 
-export function getAuthToken(option: GetAuthTokenOptions): Promise<string>;
+export function getAuthToken(option: GetAuthTokenOptions): Promise<IdTokenResult>;
 
 export function logout(): Promise<any>;
+
+export function unlink(providerId: string): Promise<User>;
 
 export function fetchProvidersForEmail(email: string): Promise<Array<string>>;
 
 export function fetchSignInMethodsForEmail(email: string): Promise<Array<string>>;
 
-export function sendEmailVerification(): Promise<any>;
+export function sendEmailVerification(actionCodeSettings?: ActionCodeSettings): Promise<any>;
 
 export function createUser(options: CreateUserOptions): Promise<User>;
 
@@ -852,9 +1043,11 @@ export function deleteUser(): Promise<any>;
 
 export function updateProfile(options: UpdateProfileOptions): Promise<any>;
 
-export function resetPassword(options: ResetPasswordOptions): Promise<any>;
+export function sendPasswordResetEmail(email: string): Promise<void>;
 
-export function changePassword(options: ChangePasswordOptions): Promise<any>;
+export function updateEmail(newEmail: string): Promise<void>;
+
+export function updatePassword(newPassword: string): Promise<void>;
 
 export function addAuthStateListener(listener: AuthStateChangeListener): boolean;
 

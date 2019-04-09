@@ -1,70 +1,74 @@
+
 declare var TNSMLKitCameraVersionNumber: number;
 
 declare var TNSMLKitCameraVersionString: interop.Reference<number>;
 
 declare class TNSMLKitCameraView extends UIViewController implements AVCaptureVideoDataOutputSampleBufferDelegate {
 
-  static alloc(): TNSMLKitCameraView; // inherited from NSObject
+	static alloc(): TNSMLKitCameraView; // inherited from NSObject
 
-  static new(): TNSMLKitCameraView; // inherited from NSObject
+	static getInputDataWithRowsAndColumnsAndType(img: UIImage, rows: number, columns: number, type: string): NSMutableData;
 
-  static resizeImage(image: UIImage): NSArray<any>;
+	static new(): TNSMLKitCameraView; // inherited from NSObject
 
-  delegate: TNSMLKitCameraViewDelegate;
+	static resizeImage(image: UIImage): NSArray<any>;
 
-  imageOrientation: UIImageOrientation;
+	static scaledDataWithSizeByteCountIsQuantized(img: UIImage, size: CGSize, byteCount: number, isQuantized: boolean): NSData;
 
-  processEveryXFrames: number;
+	delegate: TNSMLKitCameraViewDelegate;
 
-  readonly debugDescription: string; // inherited from NSObjectProtocol
+	imageOrientation: UIImageOrientation;
 
-  readonly description: string; // inherited from NSObjectProtocol
+	processEveryXFrames: number;
 
-  readonly hash: number; // inherited from NSObjectProtocol
+	readonly debugDescription: string; // inherited from NSObjectProtocol
 
-  readonly isProxy: boolean; // inherited from NSObjectProtocol
+	readonly description: string; // inherited from NSObjectProtocol
 
-  readonly superclass: typeof NSObject; // inherited from NSObjectProtocol
+	readonly hash: number; // inherited from NSObjectProtocol
 
-  readonly;  // inherited from NSObjectProtocol
+	readonly isProxy: boolean; // inherited from NSObjectProtocol
 
-  constructor(o: { captureSession: AVCaptureSession; });
+	readonly superclass: typeof NSObject; // inherited from NSObjectProtocol
 
-  captureOutputDidDropSampleBufferFromConnection(output: AVCaptureOutput, sampleBuffer: any, connection: AVCaptureConnection): void;
+	readonly  // inherited from NSObjectProtocol
 
-  captureOutputDidOutputSampleBufferFromConnection(output: AVCaptureOutput, sampleBuffer: any, connection: AVCaptureConnection): void;
+	constructor(o: { captureSession: AVCaptureSession; });
 
-  class(): typeof NSObject;
+	captureOutputDidDropSampleBufferFromConnection(output: AVCaptureOutput, sampleBuffer: any, connection: AVCaptureConnection): void;
 
-  conformsToProtocol(aProtocol: any /* Protocol */): boolean;
+	captureOutputDidOutputSampleBufferFromConnection(output: AVCaptureOutput, sampleBuffer: any, connection: AVCaptureConnection): void;
 
-  initWithCaptureSession(captureSession: AVCaptureSession): this;
+	class(): typeof NSObject;
 
-  isEqual(object: any): boolean;
+	conformsToProtocol(aProtocol: any /* Protocol */): boolean;
 
-  isKindOfClass(aClass: typeof NSObject): boolean;
+	initWithCaptureSession(captureSession: AVCaptureSession): this;
 
-  isMemberOfClass(aClass: typeof NSObject): boolean;
+	isEqual(object: any): boolean;
 
-  performSelector(aSelector: string): any;
+	isKindOfClass(aClass: typeof NSObject): boolean;
 
-  performSelectorWithObject(aSelector: string, object: any): any;
+	isMemberOfClass(aClass: typeof NSObject): boolean;
 
-  performSelectorWithObjectWithObject(aSelector: string, object1: any, object2: any): any;
+	performSelector(aSelector: string): any;
 
-  respondsToSelector(aSelector: string): boolean;
+	performSelectorWithObject(aSelector: string, object: any): any;
 
-  retainCount(): number;
+	performSelectorWithObjectWithObject(aSelector: string, object1: any, object2: any): any;
 
-  self(): this;
+	respondsToSelector(aSelector: string): boolean;
+
+	retainCount(): number;
+
+	self(): this;
 }
 
 interface TNSMLKitCameraViewDelegate extends NSObjectProtocol {
 
-  cameraDidOutputImage(image: UIImage): void;
+	cameraDidOutputImage(image: UIImage): void;
 }
-
 declare var TNSMLKitCameraViewDelegate: {
 
-  prototype: TNSMLKitCameraViewDelegate;
+	prototype: TNSMLKitCameraViewDelegate;
 };

@@ -4,9 +4,13 @@ export function sendCrashLog(exception: any /* NSError */): void {
   }
 }
 
-export function log(priority: number, tag: string, msg: string): void {
+export function log(msg: string, tag?: string, priority?: number): void {
   if (isCrashlyticsAvailable()) {
-    Crashlytics.sharedInstance().logEvent(tag + " - " + msg);
+    if (tag) {
+      TNSCrashlyticsLoggerWrapper.log(tag + " - " + msg);
+    } else {
+      TNSCrashlyticsLoggerWrapper.log(msg);
+    }
   }
 }
 
@@ -43,6 +47,12 @@ export function setDouble(key: string, value: number): void {
 export function setUserId(id: string): void {
   if (isCrashlyticsAvailable()) {
     Crashlytics.sharedInstance().setUserIdentifier(id);
+  }
+}
+
+export function crash(): void {
+  if (isCrashlyticsAvailable()) {
+    Crashlytics.sharedInstance().crash();
   }
 }
 
