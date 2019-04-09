@@ -1,13 +1,24 @@
 import { ImageSource } from "tns-core-modules/image-source";
-import { MLKitScanBarcodesOnDeviceOptions, MLKitScanBarcodesOnDeviceResult } from "./";
-import { MLKitOptions } from "../index";
+import { MLKitScanBarcodesOnDeviceOptions, MLKitScanBarcodesOnDeviceResult, MLKitScanBarcodesResultBounds } from "./";
+import { MLKitVisionOptions } from "../index";
 import { BarcodeFormat, MLKitBarcodeScanner as MLKitBarcodeScannerBase } from "./barcodescanning-common";
-
-declare const com: any;
+import * as application from "tns-core-modules/application";
 
 export { BarcodeFormat };
 
+const gmsTasks = (<any>com.google.android.gms).tasks;
+
 export class MLKitBarcodeScanner extends MLKitBarcodeScannerBase {
+
+  private player: android.media.MediaPlayer;
+
+  disposeNativeView(): void {
+    super.disposeNativeView();
+    if (this.player) {
+      this.player.release();
+      this.player = undefined;
+    }
+  }
 
   protected createDetector(): any {
     let formats: Array<BarcodeFormat>;
@@ -16,26 +27,60 @@ export class MLKitBarcodeScanner extends MLKitBarcodeScannerBase {
       const requestedFormats = this.formats.split(",");
       requestedFormats.forEach(format => formats.push(BarcodeFormat[format.trim().toUpperCase()]))
     }
+
+    if (this.beepOnScan) {
+      const activity = (application.android.foregroundActivity || application.android.startActivity);
+      activity.setVolumeControlStream(android.media.AudioManager.STREAM_MUSIC);
+      try {
+        const file = application.android.context.getResources().getIdentifier("beep", "raw", application.android.context.getPackageName());
+        if (file === 0) {
+          console.log("No 'beep.*' soundfile found in the resources /raw folder. There will be no audible feedback upon scanning a barcode.");
+        } else {
+          this.player = new android.media.MediaPlayer();
+          const fileDescriptor: android.content.res.AssetFileDescriptor = application.android.context.getResources().openRawResourceFd(file);
+          try {
+            this.player.setDataSource(fileDescriptor.getFileDescriptor(), fileDescriptor.getStartOffset(), fileDescriptor.getLength());
+          } finally {
+            fileDescriptor.close();
+          }
+          // this.mediaPlayer.setOnErrorListener(this);
+          this.player.setAudioStreamType(android.media.AudioManager.STREAM_MUSIC);
+          this.player.setLooping(false);
+          this.player.setVolume(0.10, 0.10);
+          this.player.prepare();
+        }
+      } catch (e) {
+        console.log(e);
+        this.player.release();
+        this.player = undefined;
+      }
+    }
+
     return getBarcodeDetector(formats);
   }
 
   protected createSuccessListener(): any {
-    return new com.google.android.gms.tasks.OnSuccessListener({
+    return new gmsTasks.OnSuccessListener({
       onSuccess: barcodes => {
 
         const result = <MLKitScanBarcodesOnDeviceResult>{
           barcodes: []
         };
 
-        if (barcodes) {
+        if (barcodes && barcodes.size() > 0) {
           // see https://github.com/firebase/quickstart-android/blob/0f4c86877fc5f771cac95797dffa8bd026dd9dc7/mlkit/app/src/main/java/com/google/firebase/samples/apps/mlkit/textrecognition/TextRecognitionProcessor.java#L62
           for (let i = 0; i < barcodes.size(); i++) {
             const barcode = barcodes.get(i);
             result.barcodes.push({
               value: barcode.getRawValue(),
               format: BarcodeFormat[barcode.getFormat()],
-              android: barcode
+              android: barcode,
+              bounds: boundingBoxToBounds(barcode.getBoundingBox())
             });
+          }
+
+          if (this.player) {
+            this.player.start();
           }
         }
 
@@ -46,6 +91,19 @@ export class MLKitBarcodeScanner extends MLKitBarcodeScannerBase {
         });
       }
     });
+  }
+}
+
+function boundingBoxToBounds(rect: any): MLKitScanBarcodesResultBounds {
+  return {
+    origin: {
+      x: rect.left,
+      y: rect.top
+    },
+    size: {
+      width: rect.width(),
+      height: rect.height()
+    }
   }
 }
 
@@ -66,7 +124,7 @@ export function scanBarcodesOnDevice(options: MLKitScanBarcodesOnDeviceOptions):
     try {
       const firebaseVisionBarcodeDetector = getBarcodeDetector(options.formats);
 
-      const onSuccessListener = new com.google.android.gms.tasks.OnSuccessListener({
+      const onSuccessListener = new gmsTasks.OnSuccessListener({
         onSuccess: barcodes => {
           const result = <MLKitScanBarcodesOnDeviceResult>{
             barcodes: []
@@ -79,7 +137,8 @@ export function scanBarcodesOnDevice(options: MLKitScanBarcodesOnDeviceOptions):
               result.barcodes.push({
                 value: barcode.getRawValue(),
                 format: BarcodeFormat[barcode.getFormat()],
-                android: barcode
+                android: barcode,
+                bounds: boundingBoxToBounds(barcode.getBoundingBox())
               });
             }
           }
@@ -89,7 +148,7 @@ export function scanBarcodesOnDevice(options: MLKitScanBarcodesOnDeviceOptions):
         }
       });
 
-      const onFailureListener = new com.google.android.gms.tasks.OnFailureListener({
+      const onFailureListener = new gmsTasks.OnFailureListener({
         onFailure: exception => reject(exception.getMessage())
       });
 
@@ -105,7 +164,7 @@ export function scanBarcodesOnDevice(options: MLKitScanBarcodesOnDeviceOptions):
   });
 }
 
-function getImage(options: MLKitOptions): any /* com.google.firebase.ml.vision.common.FirebaseVisionImage */ {
+function getImage(options: MLKitVisionOptions): any /* com.google.firebase.ml.vision.common.FirebaseVisionImage */ {
   const image: android.graphics.Bitmap = options.image instanceof ImageSource ? options.image.android : options.image.imageSource.android;
   return com.google.firebase.ml.vision.common.FirebaseVisionImage.fromBitmap(image);
 }

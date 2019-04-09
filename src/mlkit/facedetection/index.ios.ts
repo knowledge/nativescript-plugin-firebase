@@ -1,8 +1,8 @@
 import { ImageSource } from "tns-core-modules/image-source";
-import { MLKitDetectFacesOnDeviceOptions, MLKitDetectFacesOnDeviceResult } from "./";
-import { MLKitOptions } from "../index";
-import { MLKitFaceDetection as MLKitFaceDetectionBase } from "./facedetection-common";
 import { ios as iosUtils } from "tns-core-modules/utils/utils";
+import { MLKitVisionOptions } from "../";
+import { MLKitDetectFacesOnDeviceOptions, MLKitDetectFacesOnDeviceResult } from "./";
+import { MLKitFaceDetection as MLKitFaceDetectionBase } from "./facedetection-common";
 
 export class MLKitFaceDetection extends MLKitFaceDetectionBase {
 
@@ -30,7 +30,10 @@ export class MLKitFaceDetection extends MLKitFaceDetectionBase {
             smilingProbability: face.hasSmilingProbability ? face.smilingProbability : undefined,
             leftEyeOpenProbability: face.hasLeftEyeOpenProbability ? face.leftEyeOpenProbability : undefined,
             rightEyeOpenProbability: face.hasRightEyeOpenProbability ? face.rightEyeOpenProbability : undefined,
-            trackingId: face.hasTrackingID ? face.trackingID : undefined
+            trackingId: face.hasTrackingID ? face.trackingID : undefined,
+            bounds: face.frame,
+            headEulerAngleY: face.headEulerAngleY,
+            headEulerAngleZ: face.headEulerAngleZ
           });
         }
 
@@ -86,7 +89,10 @@ export function detectFacesOnDevice(options: MLKitDetectFacesOnDeviceOptions): P
               smilingProbability: face.hasSmilingProbability ? face.smilingProbability : undefined,
               leftEyeOpenProbability: face.hasLeftEyeOpenProbability ? face.leftEyeOpenProbability : undefined,
               rightEyeOpenProbability: face.hasRightEyeOpenProbability ? face.rightEyeOpenProbability : undefined,
-              trackingId: face.hasTrackingID ? face.trackingID : undefined
+              trackingId: face.hasTrackingID ? face.trackingID : undefined,
+              bounds: face.frame,
+              headEulerAngleY: face.headEulerAngleY,
+              headEulerAngleZ: face.headEulerAngleZ
             });
           }
           resolve(result);
@@ -99,7 +105,7 @@ export function detectFacesOnDevice(options: MLKitDetectFacesOnDeviceOptions): P
   });
 }
 
-function getImage(options: MLKitOptions): FIRVisionImage {
+function getImage(options: MLKitVisionOptions): FIRVisionImage {
   const image = options.image instanceof ImageSource ? options.image.ios : options.image.imageSource.ios;
   const newImage = UIImage.alloc().initWithCGImageScaleOrientation(image.CGImage, 1, UIImageOrientation.Up);
   return FIRVisionImage.alloc().initWithImage(newImage);

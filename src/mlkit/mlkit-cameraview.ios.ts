@@ -57,8 +57,14 @@ export abstract class MLKitCameraView extends MLKitCameraViewBase {
     this.captureSession = AVCaptureSession.new();
     this.captureSession.sessionPreset = AVCaptureSessionPreset1280x720;
 
-    const captureDeviceInput = AVCaptureDeviceInput.deviceInputWithDeviceError(this.captureDevice);
-    this.captureSession.addInput(captureDeviceInput);
+    try {
+      const captureDeviceInput = AVCaptureDeviceInput.deviceInputWithDeviceError(this.captureDevice);
+      this.captureSession.addInput(captureDeviceInput);
+    } catch (e) {
+      // likely here, because the camera permission was previously denied (catching, otherwise the app crashes)
+      console.log("Error while trying to use the camera: " + e);
+      return;
+    }
 
     this.previewLayer = AVCaptureVideoPreviewLayer.layerWithSession(this.captureSession);
     this.previewLayer.videoGravity = AVLayerVideoGravityResizeAspectFill;
@@ -169,10 +175,14 @@ export abstract class MLKitCameraView extends MLKitCameraViewBase {
   abstract createDetector(): any;
 
   abstract createSuccessListener(): any;
+
+  runDetector(image: UIImage, onComplete: () => void) {
+    throw new Error("No custom detector implemented, so 'runDetector' can't do its thing");
+  }
 }
 
-@ObjCClass(TNSMLKitCameraViewDelegate)
 class TNSMLKitCameraViewDelegateImpl extends NSObject implements TNSMLKitCameraViewDelegate {
+  public static ObjCProtocols = [];
   private owner: WeakRef<MLKitCameraView>;
   private resultCallback: (message: any) => void;
   private options?: any;
@@ -180,7 +190,13 @@ class TNSMLKitCameraViewDelegateImpl extends NSObject implements TNSMLKitCameraV
   private detector: any;
   private onSuccessListener: any;
 
+  private detectorBusy = false;
+
   public static createWithOwnerResultCallbackAndOptions(owner: WeakRef<MLKitCameraView>, callback: (message: any) => void, options?: any): TNSMLKitCameraViewDelegateImpl {
+    // defer initialisation because the framework may not be available / used
+    if (TNSMLKitCameraViewDelegateImpl.ObjCProtocols.length === 0 && typeof (TNSMLKitCameraViewDelegate) !== "undefined") {
+      TNSMLKitCameraViewDelegateImpl.ObjCProtocols.push(TNSMLKitCameraViewDelegate);
+    }
     let delegate = <TNSMLKitCameraViewDelegateImpl>TNSMLKitCameraViewDelegateImpl.new();
     delegate.owner = owner;
     delegate.options = options;
@@ -191,17 +207,38 @@ class TNSMLKitCameraViewDelegateImpl extends NSObject implements TNSMLKitCameraV
   }
 
   cameraDidOutputImage(image: UIImage): void {
-    if (image) {
-      const fIRVisionImage = FIRVisionImage.alloc().initWithImage(image);
-      const fIRVisionImageMetadata = FIRVisionImageMetadata.new();
-      fIRVisionImageMetadata.orientation = this.owner.get().getVisionOrientation(image.imageOrientation);
-      fIRVisionImage.metadata = fIRVisionImageMetadata;
-
-      if (this.detector.detectInImageCompletion) {
-        this.detector.detectInImageCompletion(fIRVisionImage, this.onSuccessListener);
-      } else {
-        this.detector.processImageCompletion(fIRVisionImage, this.onSuccessListener);
-      }
+    if (!image || this.detectorBusy) {
+      return;
     }
+
+    this.detectorBusy = true;
+
+    const onComplete = () => {
+      this.detectorBusy = false;
+    };
+
+    if (this.detector.detectInImageCompletion) {
+      this.detector.detectInImageCompletion(this.uiImageToFIRVisionImage(image), (result, error) => {
+        this.onSuccessListener(result, error);
+        onComplete();
+      });
+
+    } else if (this.detector.processImageCompletion) {
+      this.detector.processImageCompletion(this.uiImageToFIRVisionImage(image), (result, error) => {
+        this.onSuccessListener(result, error);
+        onComplete();
+      });
+
+    } else {
+      this.owner.get().runDetector(image, onComplete);
+    }
+  }
+
+  private uiImageToFIRVisionImage(image: UIImage): FIRVisionImage {
+    const fIRVisionImage = FIRVisionImage.alloc().initWithImage(image);
+    const fIRVisionImageMetadata = FIRVisionImageMetadata.new();
+    fIRVisionImageMetadata.orientation = this.owner.get().getVisionOrientation(image.imageOrientation);
+    fIRVisionImage.metadata = fIRVisionImageMetadata;
+    return fIRVisionImage;
   }
 }

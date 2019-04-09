@@ -60,9 +60,53 @@ const unsubscribe = citiesCollection.onSnapshot((snapshot: firestore.QuerySnapsh
 
 // then after a while, to detach the listener:
 unsubscribe();
+
+/**
+ * If you pass in SnapshotOptions for the first parameter then your next should be onNext and
+ * onError if you want for the third parameter. If you pass onNext as the first parameter the
+ * second will be interpreted as onError callback. Note that you could pass onComplete, but
+ * it will never be called as stated by Firestore docs.
+ *
+ * onError callbacks are optional!
+ * onSnapshot(p1: SnapshotListenOptions|onNextCallback, p2?: onNextCallback | onErrorCallback, p3?: onErrorCallback?)
+ */
+const docRef: firestore.DocumentReference = firebase.firestore().collection("cities").doc("SF");
+docRef.onSnapshot(
+    {includeMetadataChanges: true},   // Comment out if you just want onNext && onError callbacks
+    (doc: firestore.DocumentSnapshot) => {
+
+      const source = doc.metadata.fromCache ? "local cache" : "server";
+      console.log("Data came from " + source);
+      console.log("Has pending writes? " + doc.metadata.hasPendingWrites);
+    },
+    (error: Error) => {
+      console.error(error);
+    }
+  );
 ```
 
 > Using **Observables**? [Check the example in the demo app](https://github.com/EddyVerbruggen/nativescript-plugin-firebase/blob/f6972433dea48bf1d342a6e4ef7f955dff341837/demo-ng/app/item/items.component.ts#L187-L198).
+
+#### Snapshot metadata (for queries and documents)
+Firestore can return metadata when passing the `includeMetadataChanges` boolean property. This can be used for:
+
+- `snapshot.metadata.fromCache`: True if the snapshot was created from cached data rather than guaranteed up-to-date server data.
+- `snapshot.metadata.hasPendingWrites`: True if the snapshot contains the result of local writes that have not yet been committed to the backend.
+
+```typescript
+import { firestore } from "nativescript-plugin-firebase";
+const citiesCollection = firebase.firestore().collection("cities");
+
+const unsubscribe = citiesCollection.onSnapshot(({ includeMetadataChanges: true }, snapshot: firestore.QuerySnapshot) => {
+  snapshot.forEach(city => console.log(city.data()));
+
+  console.log("Data came from " + (snapshot.metadata.fromCache ? "local cache" : "server"));
+  console.log("Has pending writes? " + snapshot.metadata.hasPendingWrites);
+});
+
+// then after a while, to detach the listener:
+unsubscribe();
+```
 
 ### `collection.doc()`
 As mentioned, a document lives inside a collection and contains the actual data:
@@ -184,6 +228,8 @@ sanFranciscoDocument.update({
   console.log("SF population updated");
 });
 ```
+
+> NB: serverTimestamp() only works in an update on the Android SDK, not add or set.
 
 ### `collection.where()`
 Firestore supports advanced querying with the `where` function. Those `where` clauses can be chained to form logical 'AND' queries:
@@ -354,4 +400,18 @@ firebase.firestore().runTransaction(transaction => {
 })
    .then(() => console.log("Transaction successfully committed"))
    .catch(error => console.log(`Transaction error: ${error}`));
+```
+
+### Firestore configurations: `settings()`
+> You must set these before invoking any other methods!
+
+Setting cacheSizeBytes is Android only
+
+You can modify `host`, `ssl` and `cacheSizeBytes`.  (`timestampsInSnapshots` shouldn't be used as it will be deprecated)
+See [docs](https://firebase.google.com/docs/reference/js/firebase.firestore.Settings) for more information.
+
+```typescript
+   firebase.firestore.settings({});
+
+   firebaseWebApi.firestore().settings({"host" : "Example", "ssl" : false});
 ```

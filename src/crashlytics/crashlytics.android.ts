@@ -6,9 +6,13 @@ export function sendCrashLog(exception: any /* java.lang.Exception */): void {
   }
 }
 
-export function log(priority: number, tag: string, msg: string): void {
+export function log(msg: string, tag?: string, priority?: number): void {
   if (isCrashlyticsAvailable()) {
-    com.crashlytics.android.Crashlytics.log(priority, tag, msg);
+    if (tag && priority) {
+      com.crashlytics.android.Crashlytics.log(priority, tag, msg);
+    } else {
+      com.crashlytics.android.Crashlytics.log(msg);
+    }
   }
 }
 
@@ -45,6 +49,12 @@ export function setDouble(key: string, value: number): void {
 export function setUserId(id: string): void {
   if (isCrashlyticsAvailable()) {
     com.crashlytics.android.Crashlytics.setUserIdentifier(id);
+  }
+}
+
+export function crash(): void {
+  if (isCrashlyticsAvailable()) {
+    com.crashlytics.android.Crashlytics.crash();
   }
 }
 

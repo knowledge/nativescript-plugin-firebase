@@ -9,6 +9,11 @@ You will be prompted during installation of the plugin to enable either Crashlyt
 Note that if you want to use Crashlytics, make sure your `firebase.nativescript.json` file has `"crashlytics": true` and `"crash_reporting": false`,
 then remove the `platforms` folder so these changes are picked up.
 
+## Configuration in the Firebase Console
+When setting up Crashlytics, select "This app is new to Crashlytics" and press "Next".
+Then the screen changes to something like "waiting for your first crash report".
+Then produce a crash, and it can easily take a day before that screen changes (later data comes in much quicker).
+
 ## Crashlytics API
 
 ### `sendCrashLog`
@@ -39,7 +44,7 @@ if (isAndroid) {
 Set a value that will be logged with an error and showing in the Firebase console on the 'Keys' tab of the error details.
 
 ```typescript
-import { crashlytics } from "nativescript-plugin-firebase"; // and do: crashlytics.sendCrashLog
+import { crashlytics } from "nativescript-plugin-firebase";
 
 crashlytics.setString("test_key", "test_value");
 crashlytics.setBool("test_key_bool", true);
@@ -49,3 +54,14 @@ crashlytics.setFloat("test_key", 54646.45);
 
 crashlytics.setUserId("user#42");
 ```
+
+### `crash`
+For easier testing, version 8.2.0 exposed this `crash()` function of the native Firebase Crashlytics SDKs:
+
+```typescript
+import { crashlytics } from "nativescript-plugin-firebase";
+
+crashlytics.crash();
+```
+
+> This should crash your app unless you have `discardUncaughtJsExceptions` set to `true` in `app/package.json`.

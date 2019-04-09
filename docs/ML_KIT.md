@@ -84,7 +84,7 @@ To be able to use Cloud features you need to do two things:
 |[Barcode scanning](#barcode-scanning)|✅|
 |[Image labeling](#image-labeling)|✅|✅
 |[Landmark recognition](#landmark-recognition)||✅
-|[Custom model inference](#custom-model-inference)||
+|[Custom model inference](#custom-model-inference)|✅|✅
 
 ### Text recognition
 <img src="https://raw.githubusercontent.com/EddyVerbruggen/nativescript-plugin-firebase/master/docs/images/features/mlkit_text_recognition.png" height="153px" alt="ML Kit - Text recognition"/>
@@ -161,7 +161,7 @@ you can pause the scanner with the `pause` property.
 
 > Look at [the demo app](https://github.com/EddyVerbruggen/nativescript-plugin-firebase/tree/master/demo-ng) to see how to wire up that `onTextRecognitionResult` function, and how to wire `torchOn` to a `Switch`. 
 
-##### Angular / Vue
+##### Angular
 Register a custom element like so in the component/module:
 
 ```typescript
@@ -182,6 +182,25 @@ Now you're able to use the registered element in the view:
     [torchOn]="torchOn"
     (scanResult)="onTextRecognitionResult($event)">
 </MLKitTextRecognition>
+```
+
+##### Vue
+Register a custom element like so in `main.js`:
+
+```typescript
+Vue.registerElement("MLKitTextRecognition", () => require("nativescript-plugin-firebase/mlkit/textrecognition").MLKitTextRecognition);
+```
+
+Now you're able to use the registered element in your `.Vue` file:
+
+```vue
+  <MLKitTextRecognition
+    width="260"
+    height="340"
+    processEveryNthFrame="5"
+    :torchOn="torchOn"
+    @scanResult="onTextRecognitionResult">
+  </MLKitTextRecognition>
 ```
 
 ##### XML 
@@ -279,6 +298,7 @@ registerElement("MLKitBarcodeScanner", () => require("nativescript-plugin-fireba
 <MLKitBarcodeScanner
     width="260"
     height="380"
+    beepOnScan="true"
     formats="QR_CODE, EAN_8, EAN_13"
     preferFrontCamera="false"
     [torchOn]="torchOn"
@@ -288,6 +308,8 @@ registerElement("MLKitBarcodeScanner", () => require("nativescript-plugin-fireba
 
 Note that `formats` is optional but recommended for better recognition performance. Supported types:
 `CODE_128`, `CODE_39`, `CODE_93`, `CODABAR`, `DATA_MATRIX`, `EAN_13`, `EAN_8`, `ITF`, `QR_CODE`, `UPC_A`, `UPC_E`, `PDF417`, `AZTEC`.
+
+Also note that `beepOnScan` is optional and (since version 8.1.0) default `true`.
 
 ### Image labeling
 <img src="https://raw.githubusercontent.com/EddyVerbruggen/nativescript-plugin-firebase/master/docs/images/features/mlkit_text_image_labeling.png" height="153px" alt="ML Kit - Image labeling"/>
@@ -363,6 +385,59 @@ firebase.mlkit.landmarkrecognition.recognizeLandmarksCloud({
 ```
 
 ### Custom model inference
+<img src="https://raw.githubusercontent.com/EddyVerbruggen/nativescript-plugin-firebase/master/docs/images/features/mlkit_custom_model_tflite.png" height="153px" alt="ML Kit - Custom Model (TensorFlow Lite)"/>
+
 [Firebase documentation 🌎](https://firebase.google.com/docs/ml-kit/use-custom-models)
 
-Coming soon. See issue #702.
+⚠️ **Please take note of the following:**
+
+- Currently only models bundled with your app can be used (not ones hosted on Firebase). That may change in the future.
+- Prefix the `localModelFile` and `labelsFile` below with `~/` so they point to your `app/` folder. This is for future compatibility, because I'd like to support loading models from the native bundle as well.
+- On Android, make sure the model is not compressed by adding [your model's file extension to app.gradle](https://github.com/EddyVerbruggen/nativescript-plugin-firebase/blob/57969d0a62d761bffb98b19db85af88bfae858dd/demo-ng/app/App_Resources/Android/app.gradle#L22).
+- Only "Quantized" models can be used. Not "Float" models, so `modelInput.type` below must be set to `QUANT`.
+- The `modelInput.shape` parameter below must specify your model's dimensions. If you're not sure, use the script in the paragraph "Specify the model's input and output" at [the Firebase docs](https://firebase.google.com/docs/ml-kit/ios/use-custom-models).
+
+#### Still image (on-device)
+
+```typescript
+import { MLKitCustomModelResult } from "nativescript-plugin-firebase/mlkit/custommodel";
+const firebase = require("nativescript-plugin-firebase");
+
+firebase.mlkit.custommodel.useCustomModel({
+  image: imageSource, // a NativeScript Image or ImageSource, see the demo for examples
+  maxResults: 10, // default 5 (limit numbers to this amount of results)
+  localModelFile: "~/custommodel/inception/inception_v3_quant.tflite", // see the demo, where the model lives in app/custommodel/etc..
+  labelsFile: "~/custommodel/inception/inception_labels.txt",
+  modelInput: [{ // Array<TNSCustomModelInput>
+    shape: [1, 299, 299, 3], // see the tips above
+    type: "QUANT" // for now, must be "QUANT" (and you should use a 'quantized' model (not 'float'))
+  }]
+})
+.then((result: MLKitCustomModelResult) => console.log(JSON.stringify(result.result)))
+.catch(errorMessage => console.log("ML Kit error: " + errorMessage));
+```
+
+#### Live camera feed
+The basics are explained above for 'Text recognition'.
+
+```typescript
+import { registerElement } from "nativescript-angular/element-registry";
+registerElement("MLKitCustomModel", () => require("nativescript-plugin-firebase/mlkit/custommodel").MLKitCustomModel);
+```
+
+```html
+<MLKitCustomModel
+    width="100%"
+    height="100%"
+    localModelFile="~/custommodel/inception/inception_v3_quant.tflite"
+    labelsFile="~/custommodel/inception/inception_labels.txt"
+    modelInputShape="1, 299, 299, 3"
+    modelInputType="QUANT"
+    processEveryNthFrame="30"
+    maxResults="5"
+    [torchOn]="torchOn"
+    (scanResult)="onCustomModelResult($event)">
+</MLKitCustomModel>
+```
+
+> ⚠️ Make sure to specify `modelInputShape` without the `[` and `]` characters. Spaces are allowed.

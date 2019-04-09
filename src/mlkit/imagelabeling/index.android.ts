@@ -1,8 +1,7 @@
 import { ImageSource } from "tns-core-modules/image-source";
-import { MLKitOptions, } from "../";
-import { MLKitImageLabelingOnDeviceOptions, MLKitImageLabelingOnDeviceResult } from "./";
+import { MLKitVisionOptions, } from "../";
+import { MLKitImageLabelingOptions, MLKitImageLabelingCloudResult, MLKitImageLabelingOnDeviceResult } from "./";
 import { MLKitImageLabeling as MLKitImageLabelingBase } from "./imagelabeling-common";
-import { MLKitImageLabelingCloudOptions, MLKitImageLabelingCloudResult } from "./index";
 
 declare const com: any;
 
@@ -28,9 +27,9 @@ export class MLKitImageLabeling extends MLKitImageLabelingBase {
 
         // see https://github.com/firebase/quickstart-android/blob/0f4c86877fc5f771cac95797dffa8bd026dd9dc7/mlkit/app/src/main/java/com/google/firebase/samples/apps/mlkit/textrecognition/TextRecognitionProcessor.java#L62
         for (let i = 0; i < labels.size(); i++) {
-          const label = labels.get(i);
+          const label: com.google.firebase.ml.vision.label.FirebaseVisionImageLabel = labels.get(i);
           result.labels.push({
-            text: label.getLabel(),
+            text: label.getText(),
             confidence: label.getConfidence()
           });
         }
@@ -45,16 +44,16 @@ export class MLKitImageLabeling extends MLKitImageLabelingBase {
   }
 }
 
-function getDetector(confidenceThreshold: number): any {
+function getDetector(confidenceThreshold: number): com.google.firebase.ml.vision.label.FirebaseVisionImageLabeler {
   const labelDetectorOptions =
-      new com.google.firebase.ml.vision.label.FirebaseVisionLabelDetectorOptions.Builder()
+      new com.google.firebase.ml.vision.label.FirebaseVisionOnDeviceImageLabelerOptions.Builder()
           .setConfidenceThreshold(confidenceThreshold)
           .build();
 
-  return com.google.firebase.ml.vision.FirebaseVision.getInstance().getVisionLabelDetector(labelDetectorOptions);
+  return com.google.firebase.ml.vision.FirebaseVision.getInstance().getOnDeviceImageLabeler(labelDetectorOptions);
 }
 
-export function labelImageOnDevice(options: MLKitImageLabelingOnDeviceOptions): Promise<MLKitImageLabelingOnDeviceResult> {
+export function labelImageOnDevice(options: MLKitImageLabelingOptions): Promise<MLKitImageLabelingOnDeviceResult> {
   return new Promise((resolve, reject) => {
     try {
       const firebaseVisionLabelDetector = getDetector(options.confidenceThreshold || 0.5);
@@ -67,9 +66,9 @@ export function labelImageOnDevice(options: MLKitImageLabelingOnDeviceOptions): 
 
           if (labels) {
             for (let i = 0; i < labels.size(); i++) {
-              const label = labels.get(i);
+              const label: com.google.firebase.ml.vision.label.FirebaseVisionImageLabel = labels.get(i);
               result.labels.push({
-                text: label.getLabel(),
+                text: label.getText(),
                 confidence: label.getConfidence()
               });
             }
@@ -85,7 +84,7 @@ export function labelImageOnDevice(options: MLKitImageLabelingOnDeviceOptions): 
       });
 
       firebaseVisionLabelDetector
-          .detectInImage(getImage(options))
+          .processImage(getImage(options))
           .addOnSuccessListener(onSuccessListener)
           .addOnFailureListener(onFailureListener);
 
@@ -96,16 +95,15 @@ export function labelImageOnDevice(options: MLKitImageLabelingOnDeviceOptions): 
   });
 }
 
-export function labelImageCloud(options: MLKitImageLabelingCloudOptions): Promise<MLKitImageLabelingCloudResult> {
+export function labelImageCloud(options: MLKitImageLabelingOptions): Promise<MLKitImageLabelingCloudResult> {
   return new Promise((resolve, reject) => {
     try {
       const cloudDetectorOptions =
-          new com.google.firebase.ml.vision.cloud.FirebaseVisionCloudDetectorOptions.Builder()
-              .setModelType(options.modelType === "latest" ? com.google.firebase.ml.vision.cloud.FirebaseVisionCloudDetectorOptions.LATEST_MODEL : com.google.firebase.ml.vision.cloud.FirebaseVisionCloudDetectorOptions.STABLE_MODEL)
-              .setMaxResults(options.maxResults || 10)
+          new com.google.firebase.ml.vision.label.FirebaseVisionCloudImageLabelerOptions.Builder()
+              .setConfidenceThreshold(options.confidenceThreshold || 0.5)
               .build();
 
-      const firebaseVisionCloudLabelDetector = com.google.firebase.ml.vision.FirebaseVision.getInstance().getVisionCloudLabelDetector(cloudDetectorOptions);
+      const firebaseVisionCloudLabelDetector = com.google.firebase.ml.vision.FirebaseVision.getInstance().getCloudImageLabeler(cloudDetectorOptions);
 
       const onSuccessListener = new com.google.android.gms.tasks.OnSuccessListener({
         onSuccess: labels => {
@@ -115,9 +113,9 @@ export function labelImageCloud(options: MLKitImageLabelingCloudOptions): Promis
 
           if (labels) {
             for (let i = 0; i < labels.size(); i++) {
-              const label = labels.get(i);
+              const label: com.google.firebase.ml.vision.label.FirebaseVisionImageLabel = labels.get(i);
               result.labels.push({
-                text: label.getLabel(),
+                text: label.getText(),
                 confidence: label.getConfidence()
               });
             }
@@ -133,7 +131,7 @@ export function labelImageCloud(options: MLKitImageLabelingCloudOptions): Promis
       });
 
       firebaseVisionCloudLabelDetector
-          .detectInImage(getImage(options))
+          .processImage(getImage(options))
           .addOnSuccessListener(onSuccessListener)
           .addOnFailureListener(onFailureListener);
 
@@ -144,7 +142,7 @@ export function labelImageCloud(options: MLKitImageLabelingCloudOptions): Promis
   });
 }
 
-function getImage(options: MLKitOptions): any /* com.google.firebase.ml.vision.common.FirebaseVisionImage */ {
+function getImage(options: MLKitVisionOptions): any /* com.google.firebase.ml.vision.common.FirebaseVisionImage */ {
   const image: android.graphics.Bitmap = options.image instanceof ImageSource ? options.image.android : options.image.imageSource.android;
   return com.google.firebase.ml.vision.common.FirebaseVisionImage.fromBitmap(image);
 }
